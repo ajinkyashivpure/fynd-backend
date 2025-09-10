@@ -38,17 +38,17 @@ public class ProductController {
         return productService.hybridSearch(query, limit);
     }
 
-    @GetMapping("/image")
-    public ResponseEntity<List<Document>> imageSearch(
-            @RequestParam("image") MultipartFile imageFile,
-            @RequestParam(defaultValue = "10") int limit) {
-        if (imageFile.isEmpty()) {
-            return ResponseEntity.badRequest().build();
-        }
-
-        List<Document> results = productService.imageSearch(imageFile, limit);
-        return ResponseEntity.ok(results);
-    }
+//    @GetMapping("/image")
+//    public ResponseEntity<List<Document>> imageSearch(
+//            @RequestParam("image") MultipartFile imageFile,
+//            @RequestParam(defaultValue = "10") int limit) {
+//        if (imageFile.isEmpty()) {
+//            return ResponseEntity.badRequest().build();
+//        }
+//
+//        List<Document> results = productService.imageSearch(imageFile, limit);
+//        return ResponseEntity.ok(results);
+//    }
 
 
 

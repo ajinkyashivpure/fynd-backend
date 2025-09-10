@@ -17,45 +17,70 @@ import java.util.List;
 public class ProductImportService {
 
     private final ProductService productService;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     public ProductImportService(ProductService productService) {
         this.productService = productService;
     }
 
 
-    public List<Product> importProductsFromJsonString(String jsonContent) throws IOException {
-        ObjectMapper mapper = new ObjectMapper();
-        JsonNode rootNode = mapper.readTree(jsonContent);
-        JsonNode productsNode = rootNode.get("products");
+    public List<Product> importProductsFromJsonString(String jsonString) throws IOException {
+        JsonNode root = objectMapper.readTree(jsonString);
 
-        List<Product> importedProducts = new ArrayList<>();
+        JsonNode items = root.path("item"); // array of products
+        if (items.isMissingNode() || !items.isArray()) {
+            throw new RuntimeException("No 'item' array found in JSON feed");
+        }
+        List<Product> products = new ArrayList<>();
 
-        if (productsNode.isArray()) {
-            for (JsonNode productNode : productsNode) {
-                Product product = new Product();
-                product.setBrand("MissPrint Jaipur");
-                product.setTitle(productNode.get("title").asText());
-                product.setDescription(productNode.get("description").asText());
-                product.setGender("Women");
-                product.setType("Ethnic wear");
+        for (JsonNode item : items) {
+            Product product = new Product();
 
+            // id
+            product.setId(item.path("id").path("__text").asText());
 
-                // Extract price removing currency symbol and converting to BigDecimal
-                String priceStr = productNode.get("price").asText().replace("₹ ", "").replace(",", "").trim();
-                product.setPrice(new BigDecimal(priceStr));
+            // title
+            product.setTitle(item.path("title").path("__cdata").asText().trim());
 
-                product.setUrl(productNode.get("url").asText());
-                product.setImageUrl(productNode.get("imageUrl").asText());
+            // description
+            product.setDescription(item.path("description").path("__cdata").asText().trim());
 
-                // Add category based on product title/description
+            // link
+            product.setUrl(item.path("link").path("__cdata").asText().trim());
 
-                // Use your existing createProduct method to generate embeddings and save
-                Product savedProduct = productService.createProduct(product);
-                importedProducts.add(savedProduct);
+            // image link
+            product.setImageUrl(item.path("image_link").path("__cdata").asText().trim());
+            product.setGender("female");
+
+            product.setBrand("Yezwe");
+
+            // price -> convert to BigDecimal
+            String priceText = item.path("price").path("__text").asText();
+            if (priceText != null && !priceText.isEmpty()) {
+                // Remove currency (e.g., "1299.00 INR")
+                String numericPart = priceText.replaceAll("[^0-9.]", "");
+                product.setPrice(new BigDecimal(numericPart));
             }
+
+            // occasion -> categories list
+            List<String> categories = new ArrayList<>();
+            JsonNode occasionArray = item.path("occasion");
+            if (occasionArray.isArray()) {
+                for (JsonNode occ : occasionArray) {
+                    String occText = occ.path("__cdata").asText().trim();
+                    if (!occText.isEmpty()) {
+                        categories.add(occText);
+                    }
+                }
+            }
+            product.setCategories(categories);
+
+            Product newProduct = productService.createProduct(product);
+
+            products.add(newProduct);
         }
 
-        return importedProducts;
+        return products;
     }
 
     private List<String> extractCategories(String title, String description) {
@@ -109,5 +134,71 @@ public class ProductImportService {
         categories.add("sports wear");
         return categories;
     }
+
+
+//    public void importProductsFromXML(String xmlSource, int limit) {
+//        XMLProductParser parser = new XMLProductParser();
+//        List<Product> products = parser.parseProductsFromXML(xmlSource, limit);
+//
+//        System.out.println("\n=== STARTING DATABASE IMPORT ===");
+//        System.out.println("Source: " + (xmlSource.startsWith("http") ? "URL" : "File"));
+//
+//        // Save to database
+//        int savedCount = 0;
+//        for (Product product : products) {
+//            try {
+//                productService.createProduct(product);
+//                savedCount++;
+//                System.out.println("✅ Saved product " + savedCount + ": " + product.getTitle());
+//            } catch (Exception e) {
+//                System.err.println("❌ Error saving product " + product.getId() + ": " + e.getMessage());
+//            }
+//        }
+//
+//        System.out.println("\n=== IMPORT COMPLETED ===");
+//        System.out.println("Total products processed: " + products.size());
+//        System.out.println("Successfully saved: " + savedCount);
+//        System.out.println("Failed: " + (products.size() - savedCount));
+//    }
+
+    // Test method for gradual testing with URL
+//    public void testImportWithLimit(String xmlSource, int limit) {
+//        System.out.println("🧪 TESTING IMPORT WITH LIMIT: " + limit);
+//        System.out.println("🔗 Source: " + xmlSource);
+//        importProductsFromXML(xmlSource, limit);
+//    }
+
+    // Convenience method specifically for your Shopify feed
+    public void importFromShopifyFeed(int offset, int limit) {
+        String shopifyFeedUrl = "https://52fb65-b0.myshopify.com/a/feed/superfeed.xml";
+
+        System.out.println("🛒 SHOPIFY FEED IMPORT");
+        System.out.println("📍 Offset: " + offset + " (starting from product " + (offset + 1) + ")");
+        System.out.println("📊 Limit: " + limit + " products");
+        System.out.println("🎯 Will import products " + (offset + 1) + " to " + (offset + limit));
+
+        XMLProductParser parser = new XMLProductParser();
+        List<Product> products = parser.parseProductsFromXML(shopifyFeedUrl, limit, offset);
+
+        System.out.println("\n=== STARTING DATABASE IMPORT ===");
+
+        // Save to database
+        int savedCount = 0;
+        for (Product product : products) {
+            try {
+                productService.createProduct(product);
+                savedCount++;
+                System.out.println("✅ Saved product " + savedCount + ": " + product.getTitle());
+            } catch (Exception e) {
+                System.err.println("❌ Error saving product " + product.getId() + ": " + e.getMessage());
+            }
+        }
+
+        System.out.println("\n=== IMPORT COMPLETED ===");
+        System.out.println("Total products processed: " + products.size());
+        System.out.println("Successfully saved: " + savedCount);
+        System.out.println("Failed: " + (products.size() - savedCount));
+    }
+
 
 }

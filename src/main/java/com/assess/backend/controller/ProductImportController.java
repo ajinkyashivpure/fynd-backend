@@ -5,10 +5,7 @@ import com.assess.backend.service.ProductImportService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
 import java.util.List;
@@ -20,7 +17,7 @@ public class ProductImportController {
 
     private final ProductImportService productImportService;
 
-    @Autowired
+
     public ProductImportController(ProductImportService productImportService) {
         this.productImportService = productImportService;
     }
@@ -43,6 +40,16 @@ public class ProductImportController {
             response.put("error", e.getMessage());
 
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+        }
+    }
+
+    @PostMapping("/test-import/{limit}")
+    public ResponseEntity<String> testImport(@PathVariable int offset, @PathVariable int limit) {
+        try {
+            productImportService.importFromShopifyFeed(offset,limit);
+            return ResponseEntity.ok("✅ Successfully processed " + limit + " products from Shopify feed");
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("❌ Error: " + e.getMessage());
         }
     }
 }

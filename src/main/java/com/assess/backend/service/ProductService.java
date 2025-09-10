@@ -33,7 +33,6 @@ public class ProductService {
 
     private final ProductRepository productRepository;
     private final TogetherAiService togetherAiService;
-    private final ImageEmbeddingService imageEmbeddingService;
 
     private final MongoClient mongoClient;
 
@@ -41,10 +40,9 @@ public class ProductService {
     private String databaseName;
 
     public ProductService(ProductRepository productRepository,
-                          TogetherAiService togetherAiService, ImageEmbeddingService imageEmbeddingService, MongoClient mongoClient) {
+                          TogetherAiService togetherAiService, MongoClient mongoClient) {
         this.productRepository = productRepository;
         this.togetherAiService = togetherAiService;
-        this.imageEmbeddingService = imageEmbeddingService;
         this.mongoClient = mongoClient;
     }
 
@@ -56,15 +54,15 @@ public class ProductService {
         List<Double> embedding = togetherAiService.generateEmbeddings(textForEmbedding);
         product.setVectorData(embedding);
 
-        if (product.getImageUrl() != null && !product.getImageUrl().isEmpty()) {
-            try {
-                List<Double> imageEmbedding = imageEmbeddingService.generateImageEmbeddings(product.getImageUrl());
-                product.setImageVectorData(imageEmbedding);
-            } catch (Exception e) {
-                log.warn("Failed to generate image embeddings for product: {}", product.getTitle(), e);
-                // Continue without image embeddings rather than failing the whole product creation
-            }
-        }
+//        if (product.getImageUrl() != null && !product.getImageUrl().isEmpty()) {
+//            try {
+//                List<Double> imageEmbedding = imageEmbeddingService.generateImageEmbeddings(product.getImageUrl());
+//                product.setImageVectorData(imageEmbedding);
+//            } catch (Exception e) {
+//                log.warn("Failed to generate image embeddings for product: {}", product.getTitle(), e);
+//                // Continue without image embeddings rather than failing the whole product creation
+//            }
+//        }
 
         return productRepository.save(product);
     }
@@ -341,31 +339,31 @@ public class ProductService {
 //        return results;
 //    }
 
-    public List<Document> imageSearch(MultipartFile imageFile, int limit) {
-        // Generate image embeddings from uploaded file
-        List<Double> imageEmbedding = imageEmbeddingService.generateImageEmbeddingsFromFile(imageFile);
-
-        MongoDatabase database = mongoClient.getDatabase(databaseName);
-        MongoCollection<Document> collection = database.getCollection("products");
-
-        String indexName = "image_vector_index";
-        FieldSearchPath fieldSearchPath = fieldPath("imageVectorData");
-        long numCandidates = 100;
-
-        List<Bson> pipeline = asList(
-                Aggregates.vectorSearch(fieldSearchPath, imageEmbedding, indexName, limit,
-                        VectorSearchOptions.approximateVectorSearchOptions(numCandidates)),
-                Aggregates.project(fields(
-                        Projections.excludeId(),
-                        Projections.include("title", "price", "imageUrl", "color", "size", "inStock", "stockQuantity"),
-                        Projections.computed("score", new Document("$meta", "vectorSearchScore"))
-                ))
-        );
-
-        List<Document> results = new ArrayList<>();
-        collection.aggregate(pipeline).into(results);
-        return results;
-    }
+//    public List<Document> imageSearch(MultipartFile imageFile, int limit) {
+//        // Generate image embeddings from uploaded file
+//        List<Double> imageEmbedding = imageEmbeddingService.generateImageEmbeddingsFromFile(imageFile);
+//
+//        MongoDatabase database = mongoClient.getDatabase(databaseName);
+//        MongoCollection<Document> collection = database.getCollection("products");
+//
+//        String indexName = "image_vector_index";
+//        FieldSearchPath fieldSearchPath = fieldPath("imageVectorData");
+//        long numCandidates = 100;
+//
+//        List<Bson> pipeline = asList(
+//                Aggregates.vectorSearch(fieldSearchPath, imageEmbedding, indexName, limit,
+//                        VectorSearchOptions.approximateVectorSearchOptions(numCandidates)),
+//                Aggregates.project(fields(
+//                        Projections.excludeId(),
+//                        Projections.include("title", "price", "imageUrl", "color", "size", "inStock", "stockQuantity"),
+//                        Projections.computed("score", new Document("$meta", "vectorSearchScore"))
+//                ))
+//        );
+//
+//        List<Document> results = new ArrayList<>();
+//        collection.aggregate(pipeline).into(results);
+//        return results;
+//    }
 
 
 
